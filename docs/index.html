@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#123c36">
+  <meta name="description" content="Consultá los 13 mapas de recorridos TSJ sobre calles: líneas, variantes, ida, vuelta y paradas.">
+  <title>Visor General de Recorridos · TSJ</title>
+  <link rel="stylesheet" href="vendor/leaflet.css"><link rel="stylesheet" href="style.css">
+  <script defer src="vendor/leaflet.js"></script><script defer src="app.js"></script>
+</head>
+<body>
+<header><a class="brand" href="./" aria-label="TSJ, inicio"><span class="logo">TSJ<span>↗</span></span><span class="brand-text">TRANSPORTE SAN JOSÉ<small>Red de recorridos</small></span></a><span class="header-tag">VISOR GENERAL <span class="live-dot"></span></span></header>
+<main>
+  <aside aria-label="Seleccionar recorridos">
+    <div class="intro"><p class="eyebrow">EXPLORÁ LA RED</p><h1>Todos los caminos.<br>Un solo mapa.</h1><p>Compará líneas y encontrá cada recorrido sobre las calles de la ciudad.</p></div>
+    <div class="filter-section"><label class="search-label" for="search">Buscar línea o variante</label><input id="search" type="search" placeholder="Ej. Línea A, Nueva B, propuesta…" autocomplete="off">
+    <div class="list-heading"><h2>Mapas disponibles <span id="total">13</span></h2><div><button id="all" class="text-button">Todos</button><span aria-hidden="true"> · </span><button id="none" class="text-button">Ninguno</button></div></div>
+    </div>
+    <div id="lines" class="lines" aria-label="Líneas"><p class="loading">Cargando los recorridos…</p></div>
+    <div class="sync"><div class="sync-title"><span class="live-dot"></span><strong>Actualización automática</strong><button id="refresh" class="text-button">Actualizar</button></div><p id="sync-status" role="status">Consultando última versión…</p><p class="sync-note">Consulta programada cada 30 min.</p><a href="https://drive.google.com/drive/folders/19sxVSeKEC8K1Dhpzs03g_URklKF5-tjW" target="_blank" rel="noopener">Ver los mapas originales ↗</a></div>
+  </aside>
+  <section class="map-area" aria-label="Mapa de calles y recorridos">
+    <div class="map-toolbar"><div class="direction-controls" role="group" aria-label="Sentido del recorrido"><button data-direction="todos" aria-pressed="true" class="active">Ida y vuelta</button><button data-direction="ida" aria-pressed="false">Ida</button><button data-direction="vuelta" aria-pressed="false">Vuelta</button><button data-direction="sin identificar" aria-pressed="false">Sin identificar</button></div><label class="stops"><input id="stops" type="checkbox"> Paradas</label><button id="fit" class="fit-button">⌖ <span>Encuadrar</span></button></div>
+    <div id="map" aria-label="Mapa interactivo" tabindex="0"></div>
+    <div id="notice" class="notice" role="status" hidden></div>
+    <div class="map-caption"><div><span class="live-dot"></span><strong id="visible-count">Cargando…</strong><small id="segment-count"></small></div><div class="legend"><span class="sample"></span> Ida <span class="sample dashed"></span> Vuelta <span class="sample unknown"></span> Sin identificar</div></div>
+  </section>
+</main>
+<noscript>Activá JavaScript para utilizar el mapa interactivo.</noscript>
+</body></html>
