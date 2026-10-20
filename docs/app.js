@@ -2,6 +2,7 @@
 const $ = id => document.getElementById(id);
 const INTERVAL = 30 * 60 * 1000;
 let map, routes, snapshot, selected = new Set(), sense = 'todos', showStops = false, initialized = false, busy = false;
+let hiddenBranches = new Set(), branchGroups = new Map();
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function notify(message) { $('notice').hidden = !message; $('notice').textContent = message; }
 function timestamp(value) { return new Date(value).toLocaleString('es-AR', {timeZone:'America/Argentina/Buenos_Aires',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
@@ -11,44 +12,76 @@ function status() {
   $('sync-status').textContent = `${stale ? 'Datos pendientes de actualización' : 'KML verificados'} · ${timestamp(snapshot.updatedAt)} (Argentina)`;
   if (stale) notify('La última sincronización tiene más de una hora. Se muestran los últimos recorridos verificados.');
 }
-function saveSelection() { try { localStorage.setItem('tsj-lines',JSON.stringify([...selected])); } catch {} }
+function saveSelection() { try { localStorage.setItem('tsj-lines',JSON.stringify([...selected])); localStorage.setItem('tsj-hidden-branches',JSON.stringify([...hiddenBranches])); } catch {} }
+function indexBranches() {
+  branchGroups = new Map(snapshot.sources.map(s=>[s.id,new Map()]));
+  snapshot.features.filter(f=>f.geometry.type==='LineString').forEach(f=>{
+    const p=f.properties, key=TSJBranches.key(p), group=branchGroups.get(p.sourceId);
+    if(!group.has(key)) group.set(key,{key,name:TSJBranches.branch(p),directions:new Set()});
+    group.get(key).directions.add(p.direction);
+  });
+}
 function renderList() {
+  const scroll = $('lines').scrollTop;
   $('lines').innerHTML = snapshot.sources.map(s => {
     const f = snapshot.features.filter(f => f.properties.sourceId === s.id && f.geometry.type === 'LineString');
     const directions = [...new Set(f.map(f => f.properties.direction))].join(' · ');
-    return `<div class="line-row" style="--line-color:${esc(s.color)}" data-source="${esc(s.id)}"><label><input type="checkbox" value="${esc(s.id)}" ${selected.has(s.id)?'checked':''}><span class="swatch"></span><span class="line-name">${esc(s.name)}<small>${esc(directions)}</small></span></label><a class="source-link" href="https://www.google.com/maps/d/viewer?mid=${encodeURIComponent(s.id)}" target="_blank" rel="noopener" aria-label="Abrir mapa original de ${esc(s.name)}">↗</a></div>`;
+    const branches=[...branchGroups.get(s.id).values()];
+    const controls=branches.length>1 ? `<div class="branch-list" role="group" aria-label="Ramales de ${esc(s.name)}">${branches.map(b=>`<label class="branch-option"><input type="checkbox" data-branch="${esc(b.key)}" data-line="${esc(s.id)}" ${selected.has(s.id)&&!hiddenBranches.has(b.key)?'checked':''}><span>${esc(b.name)}<small>${esc([...b.directions].join(' · '))}</small></span></label>`).join('')}</div>` : '';
+    return `<div class="line-group" data-source="${esc(s.id)}" data-search="${esc(s.name+' '+branches.map(b=>b.name).join(' '))}" style="--line-color:${esc(s.color)}"><div class="line-row"><label><input type="checkbox" data-parent="${esc(s.id)}" value="${esc(s.id)}" ${selected.has(s.id)?'checked':''}><span class="swatch"></span><span class="line-name">${esc(s.name)}<small>${branches.length>1?branches.length+' ramales':esc(directions)}</small></span></label><a class="source-link" href="https://www.google.com/maps/d/viewer?mid=${encodeURIComponent(s.id)}" target="_blank" rel="noopener" aria-label="Abrir mapa original de ${esc(s.name)}">↗</a></div>${controls}</div>`;
   }).join('');
-  $('lines').querySelectorAll('input').forEach(input => input.addEventListener('change', () => {
+  $('lines').querySelectorAll('[data-parent]').forEach(input => {
+    const keys=[...branchGroups.get(input.value).keys()];
+    const active=keys.filter(k=>selected.has(input.value)&&!hiddenBranches.has(k)).length;
+    input.indeterminate=active>0&&active<keys.length;
+    input.addEventListener('change', () => {
     input.checked ? selected.add(input.value) : selected.delete(input.value);
-    saveSelection(); draw();
+    if(input.checked) keys.forEach(k=>hiddenBranches.delete(k));
+    saveSelection(); renderList(); draw();
+    $('lines').querySelector(`[data-parent="${input.value}"]`).focus({preventScroll:true});
+    });
+  });
+  $('lines').querySelectorAll('[data-branch]').forEach(input=>input.addEventListener('change',()=>{
+    const id=input.dataset.line, key=input.dataset.branch;
+    if(input.checked) {
+      if(!selected.has(id)) branchGroups.get(id).forEach(b=>hiddenBranches.add(b.key));
+      selected.add(id); hiddenBranches.delete(key);
+    } else {
+      hiddenBranches.add(key);
+      if([...branchGroups.get(id).keys()].every(k=>hiddenBranches.has(k))) selected.delete(id);
+    }
+    saveSelection(); renderList(); draw();
+    $('lines').querySelector(`[data-branch="${key}"]`).focus({preventScroll:true});
   }));
   filterList();
+  $('lines').scrollTop=scroll;
 }
 function filterList() {
   const q = $('search').value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/linea\s*/g,'').trim();
-  $('lines').querySelectorAll('.line-row').forEach(row => { row.hidden = !row.textContent.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/linea\s*/g,'').includes(q); });
+  $('lines').querySelectorAll('.line-group').forEach(row => { row.hidden = !row.dataset.search.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/linea\s*/g,'').includes(q); });
 }
 function draw() {
   if (!snapshot || !map) return;
   routes.clearLayers();
   const sources = new Map(snapshot.sources.map(s => [s.id,s]));
-  const features = snapshot.features.filter(f => selected.has(f.properties.sourceId) && (sense === 'todos' || f.properties.direction === sense || f.properties.direction === 'ambos') && (showStops || f.geometry.type !== 'Point'));
+  const features = snapshot.features.filter(f => selected.has(f.properties.sourceId) && !hiddenBranches.has(TSJBranches.key(f.properties)) && (sense === 'todos' || f.properties.direction === sense || f.properties.direction === 'ambos') && (showStops || f.geometry.type !== 'Point'));
   L.geoJSON(features, {
     style: f => ({color:sources.get(f.properties.sourceId).color, weight:f.properties.direction === 'vuelta'?4:5, opacity:.86, dashArray:f.properties.direction === 'vuelta'?'10 9':f.properties.direction === 'sin identificar'?'2 8':null, lineCap:'round'}),
     pointToLayer: (f,latlng) => L.circleMarker(latlng,{radius:4,color:sources.get(f.properties.sourceId).color,weight:2,fillColor:'#fff',fillOpacity:1}),
     onEachFeature: (f,layer) => {
       const p=f.properties;
       layer.bindPopup(`<div class="popup-title">${esc(p.line)}</div><strong>${esc(p.name)}</strong><br>Sentido: ${esc(p.direction)}<br>${esc(p.folder)}<br><a href="https://www.google.com/maps/d/viewer?mid=${encodeURIComponent(p.sourceId)}" target="_blank" rel="noopener">Ver mapa original ↗</a>`);
-      if (f.geometry.type==='LineString') layer.bindTooltip(`${p.line} · ${p.direction}`,{sticky:true});
+      if (f.geometry.type==='LineString') layer.bindTooltip(`${p.line} · ${TSJBranches.branch(p)} · ${p.direction}`,{sticky:true});
     }
   }).addTo(routes);
   const count = new Set(features.filter(f=>f.geometry.type==='LineString').map(f=>f.properties.sourceId)).size;
   $('visible-count').textContent = `${count} de ${snapshot.sources.length} mapas visibles`;
-  $('segment-count').textContent = `${features.filter(f=>f.geometry.type==='LineString').length} tramos`;
+  const segmentCount=features.filter(f=>f.geometry.type==='LineString').length;
+  $('segment-count').textContent = `${segmentCount} ${segmentCount===1?'tramo':'tramos'}`;
   if (!features.length) notify(selected.size ? 'No hay recorridos para este sentido. Probá con Ida y vuelta o Sin identificar.' : 'Seleccioná una o más líneas para ver sus recorridos.');
   else { notify(''); status(); }
 }
-function fit() { if(routes && routes.getBounds().isValid()) map.fitBounds(routes.getBounds(),{paddingTopLeft:[35,145],paddingBottomRight:[35,90],maxZoom:15}); }
+function fit() { if(routes && routes.getBounds().isValid()) map.fitBounds(routes.getBounds(),{paddingTopLeft:[25,100],paddingBottomRight:[25,45],maxZoom:15}); }
 async function refresh() {
   if (busy) return;
   busy=true; $('refresh').disabled=true;
@@ -58,9 +91,11 @@ async function refresh() {
     const next = await response.json();
     if (next.type!=='FeatureCollection' || next.sources?.length!==13 || !next.features?.length || !Number.isFinite(Date.parse(next.updatedAt))) throw Error('Datos incompletos');
     snapshot=next;
+    indexBranches();
     if (!initialized) {
       selected=new Set(snapshot.sources.map(s=>s.id));
       try { const saved=JSON.parse(localStorage.getItem('tsj-lines')); if(Array.isArray(saved)) selected=new Set(saved.filter(id=>snapshot.sources.some(s=>s.id===id))); } catch {}
+      try { const saved=JSON.parse(localStorage.getItem('tsj-hidden-branches')); if(Array.isArray(saved)) hiddenBranches=new Set(saved.filter(k=>typeof k==='string')); } catch {}
     }
     renderList(); draw(); status();
     if (!initialized) { fit(); initialized=true; }
@@ -80,8 +115,8 @@ if (typeof L === 'undefined') {
   L.control.scale({imperial:false,position:'bottomright'}).addTo(map);
   routes=L.featureGroup().addTo(map);
   $('search').addEventListener('input',filterList);
-  $('all').addEventListener('click',()=>{if(!snapshot)return;selected=new Set(snapshot.sources.map(s=>s.id));saveSelection();renderList();draw();});
-  $('none').addEventListener('click',()=>{selected.clear();saveSelection();renderList();draw();});
+  $('all').addEventListener('click',()=>{if(!snapshot)return;selected=new Set(snapshot.sources.map(s=>s.id));hiddenBranches.clear();saveSelection();renderList();draw();});
+  $('none').addEventListener('click',()=>{if(!snapshot)return;selected.clear();saveSelection();renderList();draw();});
   $('stops').addEventListener('change',e=>{showStops=e.target.checked;draw();});
   $('fit').addEventListener('click',fit);
   $('refresh').addEventListener('click',refresh);
