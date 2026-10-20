@@ -5,8 +5,10 @@
   <meta name="theme-color" content="#123c36">
   <meta name="description" content="Consultá los 13 mapas de recorridos TSJ sobre calles: líneas, variantes, ida, vuelta y paradas.">
   <title>Mapas TSJ</title>
+  <script>if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.classList.add('embedded');</script>
   <link rel="icon" type="image/png" href="logo-tsj.png">
   <link rel="stylesheet" href="vendor/leaflet.css"><link rel="stylesheet" href="style.css?v=ramales-1">
+  <style>html.embedded header{display:none}html.embedded main{height:100dvh;min-height:0}@media(max-width:700px){html.embedded main{height:auto;min-height:100dvh}}</style>
   <script defer src="vendor/leaflet.js"></script><script defer src="branches.js?v=1"></script><script defer src="app.js?v=ramales-1"></script>
 </head>
 <body>
