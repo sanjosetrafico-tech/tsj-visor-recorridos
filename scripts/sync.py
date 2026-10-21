@@ -28,10 +28,14 @@ def normalized(text):
 def source_name(text):
     value = ' '.join(str(text or '').split()).strip()
 
-    # Google Drive agrega texto auxiliar al título visible, por ejemplo:
-    # "LINEA P Shared 11:17 AM" o "NUEVA LINEA B Shared Oct 20".
-    # El visor debe mostrar solamente el nombre real del mapa.
-    value = re.sub(r'\\bSHARED\\b.*
+    # Drive agrega "Shared" y luego fecha/hora al texto visible.
+    # Nos quedamos únicamente con el nombre real del mapa.
+    value = re.split(r'\\bShared\\b', value, maxsplit=1, flags=re.I)[0].strip()
+
+    value = re.sub(r'^NUEVA\\s+LINEA\\b', 'Nueva Línea', value, flags=re.I)
+    value = re.sub(r'^LINEA\\b', 'Línea', value, flags=re.I)
+
+    return value.strip(' -–—:;,')
 
 def color_for(source_id, previous):
     if source_id in previous and previous[source_id].get('color'):
