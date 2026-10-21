@@ -61,37 +61,36 @@ def discover_sources():
     decoded = html.unescape(page)
     items = {}
 
-    # Drive serializa el inventario dentro de bloques JS/JSON. Buscamos cada
-    # ID de archivo y su nombre cercano, independientemente del orden exacto.
-    ids = list(dict.fromkeys(re.findall(r"[\"']([A-Za-z0-9_-]{20,})[\"']", decoded)))
-    for source_id in ids:
-        positions = [m.start() for m in re.finditer(re.escape(source_id), decoded)]
-        for pos in positions[:4]:
-            window = decoded[max(0, pos-1800):pos+1800]
-            names = re.findall(
-                r'(?i)(?:NUEVA\\s+)?LINEA\\s+[A-Z0-9][A-Z0-9 ._()/:-]{0,70}',
-                window
-            )
-            names = [source_name(re.sub(r'\\s+', ' ', name).strip(' -–—:;,.')) for name in names]
-            names = [name for name in names if normalized(name).startswith('LINEA ') or normalized(name).startswith('NUEVA LINEA ')]
-            if names:
-                # El nombre más corto suele ser el título del archivo y no texto vecino.
-                items[source_id] = min(names, key=len)
-                break
+    rows = re.findall(
+        r'<tr[^>]*data-id="([A-Za-z0-9_-]{20,})"[^>]*>(.*?)</tr>',
+        decoded,
+        flags=re.I | re.S
+    )
 
-    # Filtrar sólo IDs que exportan realmente como My Maps KML se hace en fetch_source.
+    for source_id, body in rows:
+        text = re.sub(r'<[^>]+>', ' ', body)
+        text = html.unescape(text)
+        text = ' '.join(text.split())
+
+        names = re.findall(
+            r'(?i)(?:NUEVA\s+)?LINEA\s+[A-Z0-9][A-Z0-9 ._()/:-]{0,90}',
+            text
+        )
+        names = [
+            source_name(re.sub(r'\s+', ' ', name).strip(' -–—:;,.'))
+            for name in names
+        ]
+        names = [
+            name for name in names
+            if normalized(name).startswith('LINEA ')
+            or normalized(name).startswith('NUEVA LINEA ')
+        ]
+
+        if names:
+            items[source_id] = min(names, key=len)
+
     if not items:
-        # Diagnóstico acotado para adaptar el parser si Google cambia su markup.
-        known_id = next(iter(previous), '')
-        pos = decoded.find(known_id) if known_id else -1
-        print(f'DIAG Drive HTML bytes={len(decoded)} known_id_pos={pos}')
-        if pos >= 0:
-            snippet = decoded[max(0, pos-900):pos+1800]
-            print('DIAG_SNIPPET_BEGIN')
-            print(snippet)
-            print('DIAG_SNIPPET_END')
         raise ValueError('No se pudo descubrir el inventario de la carpeta pública de Drive')
-
     sources = [
         {'id': source_id, 'name': name, 'color': color_for(source_id, previous)}
         for source_id, name in items.items()
