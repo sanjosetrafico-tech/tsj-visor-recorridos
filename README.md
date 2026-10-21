@@ -2,23 +2,23 @@
 
 Proyecto independiente del dashboard TSJ. No comparte archivos, despliegues ni configuración con él.
 
-Mapa de calles OpenStreetMap con Leaflet 1.9.4 incluido localmente, selección individual de los 13 mapas, colores propios, filtros de ida/vuelta/sin identificar, paradas opcionales, buscador, encuadre y enlaces a los originales. La selección se conserva en este navegador.
+Mapa de calles OpenStreetMap con Leaflet 1.9.4 incluido localmente, selección individual de los mapas disponibles, colores propios, filtros de ida/vuelta/sin identificar, paradas opcionales, buscador, encuadre y enlaces a los originales. La selección se conserva en este navegador.
 
 ## Fuentes y acceso
 
-Los 13 mapas se identificaron en la carpeta provista: https://drive.google.com/drive/folders/19sxVSeKEC8K1Dhpzs03g_URklKF5-tjW
+Los mapas se descubren automáticamente en la carpeta provista: https://drive.google.com/drive/folders/19sxVSeKEC8K1Dhpzs03g_URklKF5-tjW
 
-`sources.json` conserva los identificadores y colores. Incluye las versiones B y Nueva B, y P y propuesta P1–P2–P3 como opciones separadas. No se presume que una propuesta reemplace un recorrido vigente. Se verificó la descarga anónima HTTP 200 de los 13 KML y su geometría el 20/10/2026.
+`sources.json` conserva un inventario de referencia para mantener colores estables. En cada sincronización, la carpeta pública de Drive se consulta nuevamente: altas, bajas y renombres de My Maps se incorporan automáticamente. No se presume que una propuesta reemplace un recorrido vigente.
 
 Los sentidos se extraen de etiquetas del trazado o carpetas; los tramos sin etiqueta explícita se muestran como **Sin identificar**. La Línea M contiene dos geometrías de propuesta sin sentido identificado. No se inventan recorridos ni sentidos.
 
 ## Sincronización y publicación
 
-El flujo `.github/workflows/pages.yml` descarga y valida los 13 KML cada 30 minutos (minutos 7 y 37), al actualizar main o mediante ejecución manual. Convierte KML a GeoJSON y despliega `docs/` en GitHub Pages mediante Actions. Si una fuente falla, el flujo falla y no despliega: sigue publicada la última versión completa. Los errores quedan visibles en GitHub Actions. La página marca datos con más de una hora como pendientes de actualización.
+El flujo `.github/workflows/pages.yml` descubre los My Maps actuales de la carpeta, descarga y valida sus KML cada 30 minutos (minutos 7 y 37), al actualizar main o mediante ejecución manual. Convierte KML a GeoJSON y despliega `docs/` en GitHub Pages mediante Actions. Si una fuente falla, el flujo falla y no despliega: sigue publicada la última versión completa. Los errores quedan visibles en GitHub Actions. La página marca datos con más de una hora como pendientes de actualización.
 
 **GitHub Actions puede retrasar u omitir ejecuciones programadas; no garantiza una frecuencia exacta de 30 minutos.** El navegador consulta el último archivo publicado cada 30 minutos y al volver a la pestaña. El botón Actualizar consulta la versión publicada; no dispara la descarga de My Maps. No hay claves ni un proxy CORS público en el navegador.
 
-La sincronización actualiza los contenidos de los 13 identificadores registrados. Agregar o reemplazar mapas en la carpeta requiere actualizar `sources.json`; no se consulta automáticamente el inventario privado de Drive.
+La sincronización usa la carpeta pública de Drive como fuente de verdad. Agregar, eliminar o renombrar un My Maps en esa carpeta se refleja automáticamente en la siguiente ejecución válida.
 
 En GitHub: Settings → Pages → Source: **GitHub Actions**. Requiere Actions habilitado y permisos Pages/id-token de escritura para este flujo. El despliegue utiliza el entorno `github-pages`.
 
