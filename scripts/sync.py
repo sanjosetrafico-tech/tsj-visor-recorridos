@@ -69,7 +69,7 @@ def discover_sources():
         for pos in positions[:4]:
             window = decoded[max(0, pos-1800):pos+1800]
             names = re.findall(
-                r'(?i)(?:NUEVA\\s+)?LINEA\\s+[A-Z0-9][A-Z0-9 ._()\\-/]{0,70}',
+                r'(?i)(?:NUEVA\\s+)?LINEA\\s+[A-Z0-9][A-Z0-9 ._()/:-]{0,70}',
                 window
             )
             names = [source_name(re.sub(r'\\s+', ' ', name).strip(' -–—:;,.')) for name in names]
