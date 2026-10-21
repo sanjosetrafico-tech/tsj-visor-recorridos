@@ -89,7 +89,7 @@ async function refresh() {
     const response = await fetch(`data/routes.json?t=${Date.now()}`, {cache:'no-store',signal:AbortSignal.timeout(30000)});
     if (!response.ok) throw Error(`HTTP ${response.status}`);
     const next = await response.json();
-    if (next.type!=='FeatureCollection' || next.sources?.length!==13 || !next.features?.length || !Number.isFinite(Date.parse(next.updatedAt))) throw Error('Datos incompletos');
+    if (next.type!=='FeatureCollection' || !Array.isArray(next.sources) || !next.sources.length || !next.features?.length || !Number.isFinite(Date.parse(next.updatedAt))) throw Error('Datos incompletos');
     snapshot=next;
     indexBranches();
     if (!initialized) {
