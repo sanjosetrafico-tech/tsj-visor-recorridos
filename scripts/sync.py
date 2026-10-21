@@ -28,12 +28,17 @@ def normalized(text):
 def source_name(text):
     value = ' '.join(str(text or '').split()).strip()
 
-    # Drive agrega "Shared" y luego fecha/hora al texto visible.
-    # Nos quedamos únicamente con el nombre real del mapa.
-    value = re.split(r'\\bShared\\b', value, maxsplit=1, flags=re.I)[0].strip()
+    # Drive agrega "Shared" seguido de fecha u hora al nombre visible.
+    # Cortamos todo desde " Shared" en adelante.
+    marker = value.lower().find(' shared')
+    if marker >= 0:
+        value = value[:marker].strip()
 
-    value = re.sub(r'^NUEVA\\s+LINEA\\b', 'Nueva Línea', value, flags=re.I)
-    value = re.sub(r'^LINEA\\b', 'Línea', value, flags=re.I)
+    upper = value.upper()
+    if upper.startswith('NUEVA LINEA '):
+        value = 'Nueva Línea ' + value[len('NUEVA LINEA '):]
+    elif upper.startswith('LINEA '):
+        value = 'Línea ' + value[len('LINEA '):]
 
     return value.strip(' -–—:;,')
 
