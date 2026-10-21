@@ -1,5 +1,7 @@
 """Export public My Maps KML, validate it, and publish one atomic GeoJSON snapshot."""
 import argparse
+import hashlib
+import html
 import concurrent.futures
 import datetime as dt
 import json
@@ -8,15 +10,81 @@ import os
 from pathlib import Path
 import re
 import unicodedata
+import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 NS = {'k': 'http://www.opengis.net/kml/2.2'}
+FOLDER_ID = '19sxVSeKEC8K1Dhpzs03g_URklKF5-tjW'
+FOLDER_URL = f'https://drive.google.com/embeddedfolderview?id={FOLDER_ID}#list'
+PALETTE = ['#147d50','#2563eb','#7c3aed','#db2777','#c2410c','#a16207','#0891b2','#b91c1c','#4f46e5','#4d7c0f','#0f766e','#9333a8','#be123c','#0284c7','#ca8a04','#6d28d9','#15803d','#c026d3']
 
 
 def normalized(text):
     return ''.join(c for c in unicodedata.normalize('NFD', text.upper()) if not unicodedata.combining(c))
+
+
+def source_name(text):
+    value = ' '.join(str(text or '').split()).strip()
+    value = re.sub(r'^NUEVA\\s+LINEA\\b', 'Nueva Línea', value, flags=re.I)
+    value = re.sub(r'^LINEA\\b', 'Línea', value, flags=re.I)
+    return value
+
+
+def color_for(source_id, previous):
+    if source_id in previous and previous[source_id].get('color'):
+        return previous[source_id]['color']
+    digest = hashlib.sha256(source_id.encode('utf-8')).digest()
+    return PALETTE[int.from_bytes(digest[:2], 'big') % len(PALETTE)]
+
+
+def fallback_sources():
+    path = ROOT / 'sources.json'
+    return json.loads(path.read_text(encoding='utf-8')) if path.exists() else []
+
+
+def discover_sources():
+    previous_list = fallback_sources()
+    previous = {s['id']: s for s in previous_list if s.get('id')}
+
+    request = urllib.request.Request(
+        FOLDER_URL,
+        headers={'User-Agent': 'Mozilla/5.0 TSJ-Visor/2.0'}
+    )
+    with urllib.request.urlopen(request, timeout=45) as response:
+        page = response.read(5_000_001).decode('utf-8', errors='replace')
+
+    if len(page) > 5_000_000:
+        raise ValueError('La carpeta pública devolvió una respuesta demasiado grande')
+
+    decoded = html.unescape(page)
+    items = {}
+
+    patterns = [
+        r'href="[^"]*(?:mid|id)=([A-Za-z0-9_-]{20,})[^"]*"[^>]*(?:aria-label|title)="([^"]+)"',
+        r'(?:aria-label|title)="([^"]+)"[^>]*href="[^"]*(?:mid|id)=([A-Za-z0-9_-]{20,})[^"]*"'
+    ]
+
+    for pattern in patterns:
+        for match in re.finditer(pattern, decoded, flags=re.I):
+            a, b = match.groups()
+            source_id, name = (a, b) if re.fullmatch(r'[A-Za-z0-9_-]{20,}', a) else (b, a)
+            if normalized(name).startswith('LINEA ') or normalized(name).startswith('NUEVA LINEA '):
+                items[source_id] = source_name(name)
+
+    # Google cambia el HTML con frecuencia: si no se pudo descubrir, no se publica
+    # un inventario incompleto; se conserva la última versión válida.
+    if not items:
+        raise ValueError('No se pudo descubrir el inventario de la carpeta pública de Drive')
+
+    sources = [
+        {'id': source_id, 'name': name, 'color': color_for(source_id, previous)}
+        for source_id, name in items.items()
+    ]
+    sources.sort(key=lambda s: (normalized(s['name']), s['id']))
+    print(f'Inventario automático de Drive: {len(sources)} mapas.')
+    return sources
 
 
 def direction(text):
@@ -87,14 +155,14 @@ def fetch_source(source, local=None):
 
 
 def sync(local=None):
-    sources = json.loads((ROOT / 'sources.json').read_text(encoding='utf-8'))
-    if len(sources) != 13 or len({s['id'] for s in sources}) != 13:
-        raise ValueError('Se requieren exactamente 13 fuentes únicas')
+    sources = fallback_sources() if local else discover_sources()
+    if not sources or len({s['id'] for s in sources}) != len(sources):
+        raise ValueError('El inventario de mapas está vacío o contiene IDs duplicados')
     # Any failed source aborts the entire publication, preserving the last complete snapshot.
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(lambda s: fetch_source(s, local), sources))
     features = [f for result in results for f in result['features']]
-    snapshot = {'type': 'FeatureCollection', 'updatedAt': dt.datetime.now(dt.timezone.utc).isoformat(), 'sources': [{k:v for k,v in r.items() if k != 'features'} for r in results], 'features': features}
+    snapshot = {'type': 'FeatureCollection', 'updatedAt': dt.datetime.now(dt.timezone.utc).isoformat(), 'folderId': FOLDER_ID, 'sources': [{k:v for k,v in r.items() if k != 'features'} for r in results], 'features': features}
     target = ROOT / 'docs/data/routes.json'
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix('.tmp')
