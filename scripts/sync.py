@@ -63,7 +63,7 @@ def discover_sources():
 
     # Drive serializa el inventario dentro de bloques JS/JSON. Buscamos cada
     # ID de archivo y su nombre cercano, independientemente del orden exacto.
-    ids = list(dict.fromkeys(re.findall(r'["\\']([A-Za-z0-9_-]{20,})["\\']', decoded)))
+    ids = list(dict.fromkeys(re.findall(r"[\"']([A-Za-z0-9_-]{20,})[\"']", decoded)))
     for source_id in ids:
         positions = [m.start() for m in re.finditer(re.escape(source_id), decoded)]
         for pos in positions[:4]:
