@@ -17,7 +17,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 NS = {'k': 'http://www.opengis.net/kml/2.2'}
 FOLDER_ID = '19sxVSeKEC8K1Dhpzs03g_URklKF5-tjW'
-FOLDER_URL = f'https://drive.google.com/embeddedfolderview?id={FOLDER_ID}#list'
+FOLDER_URL = f'https://drive.google.com/drive/folders/{FOLDER_ID}?usp=sharing'
 PALETTE = ['#147d50','#2563eb','#7c3aed','#db2777','#c2410c','#a16207','#0891b2','#b91c1c','#4f46e5','#4d7c0f','#0f766e','#9333a8','#be123c','#0284c7','#ca8a04','#6d28d9','#15803d','#c026d3']
 
 
@@ -61,20 +61,25 @@ def discover_sources():
     decoded = html.unescape(page)
     items = {}
 
-    patterns = [
-        r'href="[^"]*(?:mid|id)=([A-Za-z0-9_-]{20,})[^"]*"[^>]*(?:aria-label|title)="([^"]+)"',
-        r'(?:aria-label|title)="([^"]+)"[^>]*href="[^"]*(?:mid|id)=([A-Za-z0-9_-]{20,})[^"]*"'
-    ]
+    # Drive serializa el inventario dentro de bloques JS/JSON. Buscamos cada
+    # ID de archivo y su nombre cercano, independientemente del orden exacto.
+    ids = list(dict.fromkeys(re.findall(r'["\\']([A-Za-z0-9_-]{20,})["\\']', decoded)))
+    for source_id in ids:
+        positions = [m.start() for m in re.finditer(re.escape(source_id), decoded)]
+        for pos in positions[:4]:
+            window = decoded[max(0, pos-1800):pos+1800]
+            names = re.findall(
+                r'(?i)(?:NUEVA\\s+)?LINEA\\s+[A-Z0-9][A-Z0-9 ._()\\-/]{0,70}',
+                window
+            )
+            names = [source_name(re.sub(r'\\s+', ' ', name).strip(' -–—:;,.')) for name in names]
+            names = [name for name in names if normalized(name).startswith('LINEA ') or normalized(name).startswith('NUEVA LINEA ')]
+            if names:
+                # El nombre más corto suele ser el título del archivo y no texto vecino.
+                items[source_id] = min(names, key=len)
+                break
 
-    for pattern in patterns:
-        for match in re.finditer(pattern, decoded, flags=re.I):
-            a, b = match.groups()
-            source_id, name = (a, b) if re.fullmatch(r'[A-Za-z0-9_-]{20,}', a) else (b, a)
-            if normalized(name).startswith('LINEA ') or normalized(name).startswith('NUEVA LINEA '):
-                items[source_id] = source_name(name)
-
-    # Google cambia el HTML con frecuencia: si no se pudo descubrir, no se publica
-    # un inventario incompleto; se conserva la última versión válida.
+    # Filtrar sólo IDs que exportan realmente como My Maps KML se hace en fetch_source.
     if not items:
         raise ValueError('No se pudo descubrir el inventario de la carpeta pública de Drive')
 
