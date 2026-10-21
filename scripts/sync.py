@@ -81,6 +81,15 @@ def discover_sources():
 
     # Filtrar sólo IDs que exportan realmente como My Maps KML se hace en fetch_source.
     if not items:
+        # Diagnóstico acotado para adaptar el parser si Google cambia su markup.
+        known_id = next(iter(previous), '')
+        pos = decoded.find(known_id) if known_id else -1
+        print(f'DIAG Drive HTML bytes={len(decoded)} known_id_pos={pos}')
+        if pos >= 0:
+            snippet = decoded[max(0, pos-900):pos+1800]
+            print('DIAG_SNIPPET_BEGIN')
+            print(snippet)
+            print('DIAG_SNIPPET_END')
         raise ValueError('No se pudo descubrir el inventario de la carpeta pública de Drive')
 
     sources = [
