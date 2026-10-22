@@ -6,6 +6,13 @@ let hiddenBranches = new Set(), branchGroups = new Map();
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function notify(message) { $('notice').hidden = !message; $('notice').textContent = message; }
 function timestamp(value) { return new Date(value).toLocaleString('es-AR', {timeZone:'America/Argentina/Buenos_Aires',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+function visibleDirections(values) {
+  return [...new Set(values)].filter(v=>v&&v!=='sin identificar');
+}
+function directionLabel(value) {
+  return value==='sin identificar' ? '' : value;
+}
+
 function status() {
   if (!snapshot) return;
   const stale = Date.now() - Date.parse(snapshot.updatedAt) > INTERVAL * 2;
@@ -25,9 +32,9 @@ function renderList() {
   const scroll = $('lines').scrollTop;
   $('lines').innerHTML = snapshot.sources.map(s => {
     const f = snapshot.features.filter(f => f.properties.sourceId === s.id && f.geometry.type === 'LineString');
-    const directions = [...new Set(f.map(f => f.properties.direction))].join(' · ');
+    const directions = visibleDirections(f.map(f => f.properties.direction)).join(' · ');
     const branches=[...branchGroups.get(s.id).values()];
-    const controls=branches.length>1 ? `<div class="branch-list" role="group" aria-label="Ramales de ${esc(s.name)}">${branches.map(b=>`<label class="branch-option"><input type="checkbox" data-branch="${esc(b.key)}" data-line="${esc(s.id)}" ${selected.has(s.id)&&!hiddenBranches.has(b.key)?'checked':''}><span>${esc(b.name)}<small>${esc([...b.directions].join(' · '))}</small></span></label>`).join('')}</div>` : '';
+    const controls=branches.length>1 ? `<div class="branch-list" role="group" aria-label="Ramales de ${esc(s.name)}">${branches.map(b=>`<label class="branch-option"><input type="checkbox" data-branch="${esc(b.key)}" data-line="${esc(s.id)}" ${selected.has(s.id)&&!hiddenBranches.has(b.key)?'checked':''}><span>${esc(b.name)}<small>${esc(visibleDirections([...b.directions]).join(' · '))}</small></span></label>`).join('')}</div>` : '';
     return `<div class="line-group" data-source="${esc(s.id)}" data-search="${esc(s.name+' '+branches.map(b=>b.name).join(' '))}" style="--line-color:${esc(s.color)}"><div class="line-row"><label><input type="checkbox" data-parent="${esc(s.id)}" value="${esc(s.id)}" ${selected.has(s.id)?'checked':''}><span class="swatch"></span><span class="line-name">${esc(s.name)}<small>${branches.length>1?branches.length+' ramales':esc(directions)}</small></span></label><a class="source-link" href="https://www.google.com/maps/d/viewer?mid=${encodeURIComponent(s.id)}" target="_blank" rel="noopener" aria-label="Abrir mapa original de ${esc(s.name)}">↗</a></div>${controls}</div>`;
   }).join('');
   $('lines').querySelectorAll('[data-parent]').forEach(input => {
@@ -66,19 +73,23 @@ function draw() {
   const sources = new Map(snapshot.sources.map(s => [s.id,s]));
   const features = snapshot.features.filter(f => selected.has(f.properties.sourceId) && !hiddenBranches.has(TSJBranches.key(f.properties)) && (sense === 'todos' || f.properties.direction === sense || f.properties.direction === 'ambos') && (showStops || f.geometry.type !== 'Point'));
   L.geoJSON(features, {
-    style: f => ({color:sources.get(f.properties.sourceId).color, weight:f.properties.direction === 'vuelta'?4:5, opacity:.86, dashArray:f.properties.direction === 'vuelta'?'10 9':f.properties.direction === 'sin identificar'?'2 8':null, lineCap:'round'}),
+    style: f => ({color:sources.get(f.properties.sourceId).color, weight:f.properties.direction === 'vuelta'?4:5, opacity:.86, dashArray:f.properties.direction === 'vuelta'?'10 9':null, lineCap:'round'}),
     pointToLayer: (f,latlng) => L.circleMarker(latlng,{radius:4,color:sources.get(f.properties.sourceId).color,weight:2,fillColor:'#fff',fillOpacity:1}),
     onEachFeature: (f,layer) => {
       const p=f.properties;
-      layer.bindPopup(`<div class="popup-title">${esc(p.line)}</div><strong>${esc(p.name)}</strong><br>Sentido: ${esc(p.direction)}<br>${esc(p.folder)}<br><a href="https://www.google.com/maps/d/viewer?mid=${encodeURIComponent(p.sourceId)}" target="_blank" rel="noopener">Ver mapa original ↗</a>`);
-      if (f.geometry.type==='LineString') layer.bindTooltip(`${p.line} · ${TSJBranches.branch(p)} · ${p.direction}`,{sticky:true});
+      const directionText=directionLabel(p.direction);
+      layer.bindPopup(`<div class="popup-title">${esc(p.line)}</div><strong>${esc(p.name)}</strong>${directionText?`<br>Sentido: ${esc(directionText)}`:''}<br>${esc(p.folder)}<br><a href="https://www.google.com/maps/d/viewer?mid=${encodeURIComponent(p.sourceId)}" target="_blank" rel="noopener">Ver mapa original ↗</a>`);
+      if (f.geometry.type==='LineString') {
+        const tooltip=[p.line,TSJBranches.branch(p),directionText].filter(Boolean).join(' · ');
+        layer.bindTooltip(tooltip,{sticky:true});
+      }
     }
   }).addTo(routes);
   const count = new Set(features.filter(f=>f.geometry.type==='LineString').map(f=>f.properties.sourceId)).size;
   $('visible-count').textContent = `${count} de ${snapshot.sources.length} mapas visibles`;
   const segmentCount=features.filter(f=>f.geometry.type==='LineString').length;
   $('segment-count').textContent = `${segmentCount} ${segmentCount===1?'tramo':'tramos'}`;
-  if (!features.length) notify(selected.size ? 'No hay recorridos para este sentido. Probá con Ida y vuelta o Sin identificar.' : 'Seleccioná una o más líneas para ver sus recorridos.');
+  if (!features.length) notify(selected.size ? 'No hay recorridos para este sentido. Probá con Ida y vuelta.' : 'Seleccioná una o más líneas para ver sus recorridos.');
   else { notify(''); status(); }
 }
 function fit() { if(routes && routes.getBounds().isValid()) map.fitBounds(routes.getBounds(),{paddingTopLeft:[25,100],paddingBottomRight:[25,45],maxZoom:15}); }
