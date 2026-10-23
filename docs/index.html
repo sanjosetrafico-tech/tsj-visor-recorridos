@@ -9,7 +9,7 @@
   <link rel="icon" type="image/png" href="logo-tsj.png">
   <link rel="stylesheet" href="vendor/leaflet.css"><link rel="stylesheet" href="style.css?v=clean-2">
   <style>html.embedded header{display:none}html.embedded main{height:100dvh;min-height:0}@media(max-width:700px){html.embedded main{height:auto;min-height:100dvh}}</style>
-  <script defer src="vendor/leaflet.js"></script><script defer src="branches.js?v=1"></script><script defer src="app.js?v=clean-2"></script>
+  <script defer src="vendor/leaflet.js"></script><script defer src="branches.js?v=1"></script><script defer src="app.js?v=auto-3"></script>
 </head>
 <body>
 <header><a class="brand" href="./" aria-label="Mapas TSJ, inicio"><img src="logo-tsj.png" alt="TSJ" width="108" height="64" style="object-fit:contain;flex-shrink:0"><span class="brand-text">MAPAS TSJ<small>Transporte San José</small></span></a><span class="header-tag">MAPAS TSJ <span class="live-dot"></span></span></header>
@@ -17,7 +17,7 @@
   <aside aria-label="Seleccionar recorridos">
     <div class="intro"><h1>Recorridos</h1><p>Seleccioná las líneas y los ramales que querés ver.</p></div>
     <div class="filter-section"><label class="search-label" for="search">Buscar línea o variante</label><input id="search" type="search" placeholder="Ej. Línea A, Nueva B, propuesta…" autocomplete="off">
-    <div class="list-heading"><h2>Mapas disponibles <span id="total">13</span></h2><div><button id="all" class="text-button">Todos</button><span aria-hidden="true"> · </span><button id="none" class="text-button">Ninguno</button></div></div>
+    <div class="list-heading"><h2>Mapas disponibles <span id="total">—</span></h2><div><button id="all" class="text-button">Todos</button><span aria-hidden="true"> · </span><button id="none" class="text-button">Ninguno</button></div></div>
     </div>
     <div id="lines" class="lines" aria-label="Líneas"><p class="loading">Cargando los recorridos…</p></div>
     <div class="sync" hidden><div class="sync-title"><span class="live-dot"></span><strong>Actualización automática</strong><button id="refresh" class="text-button">Actualizar</button></div><p id="sync-status" role="status">Consultando última versión…</p><p class="sync-note">Consulta programada cada 30 min.</p><a href="https://drive.google.com/drive/folders/19sxVSeKEC8K1Dhpzs03g_URklKF5-tjW" target="_blank" rel="noopener">Ver los mapas originales ↗</a></div>
