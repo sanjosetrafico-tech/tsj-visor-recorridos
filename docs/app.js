@@ -30,6 +30,7 @@ function indexBranches() {
 }
 function renderList() {
   const scroll = $('lines').scrollTop;
+  $('total').textContent = String(snapshot.sources.length);
   $('lines').innerHTML = snapshot.sources.map(s => {
     const f = snapshot.features.filter(f => f.properties.sourceId === s.id && f.geometry.type === 'LineString');
     const directions = visibleDirections(f.map(f => f.properties.direction)).join(' · ');
@@ -137,5 +138,9 @@ if (typeof L === 'undefined') {
   }));
   setInterval(refresh,INTERVAL);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
+  window.addEventListener('message',event=>{
+    if(event.origin!==window.location.origin)return;
+    if(event.data?.type==='tsj-recorridos-refresh')refresh();
+  });
   refresh();
 }
