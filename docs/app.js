@@ -1,6 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
-const INTERVAL = 30 * 60 * 1000;
+const INTERVAL = 10 * 60 * 1000;
 let map, routes, snapshot, selected = new Set(), sense = 'todos', showStops = false, initialized = false, busy = false;
 let hiddenBranches = new Set(), branchGroups = new Map();
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
