@@ -14,9 +14,9 @@ Los sentidos se extraen de etiquetas del trazado o carpetas; los tramos sin etiq
 
 ## Sincronización y publicación
 
-El flujo `.github/workflows/pages.yml` descubre los My Maps actuales de la carpeta, descarga y valida sus KML cada 30 minutos (minutos 7 y 37), al actualizar main o mediante ejecución manual. Convierte KML a GeoJSON y despliega `docs/` en GitHub Pages mediante Actions. Si una fuente falla, el flujo falla y no despliega: sigue publicada la última versión completa. Los errores quedan visibles en GitHub Actions. La página marca datos con más de una hora como pendientes de actualización.
+El flujo `.github/workflows/pages.yml` descubre los My Maps actuales de la carpeta, descarga y valida sus KML cada 10 minutos, al actualizar main o mediante ejecución manual. Convierte KML a GeoJSON y despliega `docs/` en GitHub Pages mediante Actions. Si una fuente falla, el flujo falla y no despliega: sigue publicada la última versión completa. Los errores quedan visibles en GitHub Actions. La página marca datos con más de una hora como pendientes de actualización.
 
-**GitHub Actions puede retrasar u omitir ejecuciones programadas; no garantiza una frecuencia exacta de 30 minutos.** El navegador consulta el último archivo publicado cada 30 minutos y al volver a la pestaña. El botón Actualizar consulta la versión publicada; no dispara la descarga de My Maps. No hay claves ni un proxy CORS público en el navegador.
+**GitHub Actions puede retrasar u omitir ejecuciones programadas; no garantiza una frecuencia exacta de 10 minutos.** El navegador consulta el último archivo publicado cada 10 minutos y al volver a la pestaña. El botón Actualizar consulta la versión publicada; no dispara la descarga de My Maps. No hay claves ni un proxy CORS público en el navegador.
 
 La sincronización usa la carpeta pública de Drive como fuente de verdad. Agregar, eliminar o renombrar un My Maps en esa carpeta se refleja automáticamente en la siguiente ejecución válida.
 
